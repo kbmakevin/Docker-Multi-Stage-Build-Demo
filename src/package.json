@@ -1,0 +1,16 @@
+{
+  "name": "docker-multi-stage-build-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+		"start": "nodemon --inspect=0.0.0.0 index.js",
+		"start:prod": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.4"
+  }
+}
