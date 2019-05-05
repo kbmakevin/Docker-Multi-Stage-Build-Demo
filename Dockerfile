@@ -141,12 +141,19 @@ FROM node-jdk11 AS develop
 # copy node_modules
 COPY --from=node-dependencies /home/node/app/node_modules ./node_modules
 
+COPY src/Main.java .
 RUN echo "testing java as $(whoami)...." \
-		&& echo "JAVA_HOME=$JAVA_HOME" \
-		&& ls -l $JAVA_HOME/ \
-		&& echo "PATH=$PATH" \
-		&& ls -l $JAVA_HOME/bin/ \
 		&& which java \
-		&& java -version
+		&& java -version \
+		&& echo -e "------------------------------------------------------------------------------------" \
+		&& echo "Compiling Main.java" \
+		&& echo -e "------------------------------------------------------------------------------------" \
+		&& javac Main.java \
+		&& echo "finished compiling Main.java" \
+		&& ls -l \
+		&& echo -e "------------------------------------------------------------------------------------" \
+		&& echo "Running Main.java" \
+		&& echo -e "------------------------------------------------------------------------------------" \
+		&& java Main
 
 CMD ["npm", "run", "start"]

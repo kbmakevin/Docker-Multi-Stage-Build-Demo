@@ -3,7 +3,7 @@ const port = 3000
 
 app.get('/', (req,res)=>{
 	console.log('someone accessing \'/\' path')
-	res.send('Hello World!!\nI made a change :)!\nAnd yet another change!')
+	res.send('Hello World!!\nI made a change :)!\nAnd yet another change was made!')
 })
 
 app.listen(port,()=>console.log(`Example app listening on port ${port}`))
