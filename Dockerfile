@@ -67,26 +67,7 @@ RUN apk add --no-cache --virtual .build-deps curl binutils \
     && apk del --purge .build-deps \
     && rm -rf /tmp/${GLIBC_VER}.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/*
 
-#
-# ---- Node JDK 11 Base ----
-FROM node-base-with-java-deps AS node-jdk11
 
-# install Java11 LTS JDK
-ADD https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.3%2B7/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz /opt/java
-RUN echo "Added tar ball to /opt/java..."
-RUN cd /opt/java \
-		&& JAVA_TAR="/opt/java/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz" \
-		&& tar -xf $JAVA_TAR \
-		&& ln -s /opt/java/jdk-11.0.3+7 /opt/java/current \
-		&& rm -rf $JAVA_TAR
-
-ENV JAVA_HOME=/opt/java/current
-ENV PATH="$JAVA_HOME/bin:$PATH"
-
-# revert back to node user
-USER node
-
-#
 # ---- Node JRE 11 Base ----
 FROM node-base-with-java-deps AS node-jre11
 
@@ -102,8 +83,12 @@ RUN cd /opt/java \
 		&& ln -s /opt/java/jdk-11.0.3+7-jre /opt/java/current \
 		&& rm -rf $JAVA_TAR
 
+ENV JAVA_HOME=/opt/java/current
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
 # revert back to node user
 USER node
+
 #
 # ---- Node Deps ----
 FROM node-base AS node-dependencies
@@ -126,6 +111,26 @@ ENV PORT=3000
 # copy production node_modules
 COPY --from=node-dependencies /home/node/app/prod_node_modules ./node_modules
 
+RUN cd /home/node/app
+
+# testing JRE
+RUN mkdir -p ./lib
+COPY src/Main.jar ./lib
+RUN ls -l
+
+ENV LIB_DIR=/home/node/app/lib
+ENV CLASSPATH=$LIB_DIR/Main.jar
+
+RUN echo "testing java as $(whoami)...." \
+		&& which java \
+		&& java -version \
+		&& echo "LIB_DIR is $LIB_DIR" \
+		&& echo "CLASSPATH is $CLASSPATH" \
+		&& echo -e "------------------------------------------------------------------------------------" \
+		&& echo "Running Main.jar" \
+		&& echo -e "------------------------------------------------------------------------------------" \
+		&& java Main
+
 # run healthcheck for the node app
 HEALTHCHECK --interval=5s \
 						--timeout=5s \
@@ -135,12 +140,34 @@ HEALTHCHECK --interval=5s \
 CMD ["npm", "run", "start:prod"]
 
 #
+# ---- Node JDK 11 Base ----
+FROM node-base-with-java-deps AS node-jdk11
+
+# install Java11 LTS JDK
+ADD https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.3%2B7/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz /opt/java
+RUN echo "Added tar ball to /opt/java..."
+RUN cd /opt/java \
+		&& JAVA_TAR="/opt/java/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz" \
+		&& tar -xf $JAVA_TAR \
+		&& ln -s /opt/java/jdk-11.0.3+7 /opt/java/current \
+		&& rm -rf $JAVA_TAR
+
+ENV JAVA_HOME=/opt/java/current
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+# revert back to node user
+USER node
+
+#
 # ---- Develop ----
 FROM node-jdk11 AS develop
 
 # copy node_modules
 COPY --from=node-dependencies /home/node/app/node_modules ./node_modules
 
+RUN cd /home/node/app
+
+# testing JDK
 COPY src/Main.java .
 RUN echo "testing java as $(whoami)...." \
 		&& which java \
