@@ -11,6 +11,13 @@ services:
                 volumes:
                         - ./src:/home/node/app
                         - nodemodules:/home/node/app/node_modules
+                networks:
+                        - frontend
+                        - backend
 
 volumes:
         nodemodules:
+
+networks:
+        frontend:
+        backend:
