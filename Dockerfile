@@ -1,6 +1,6 @@
 #
 # ---- Base Stage ----
-FROM alpine:3.9.3 AS base
+FROM alpine:3.9.3 AS node-base
 
 LABEL MAINTAINER="Kevin Ma <kbma.kevin@gmail.com>"
 
@@ -35,7 +35,7 @@ COPY src/package.json .
 
 #
 # ---- Node Base with Java Deps ----
-FROM base AS node-base
+FROM node-base AS node-base-with-java-deps
 
 # temporarily restore root access to install java
 USER root
@@ -69,7 +69,7 @@ RUN apk add --no-cache --virtual .build-deps curl binutils \
 
 #
 # ---- Node JDK 11 Base ----
-FROM node-base AS node-jdk11
+FROM node-base-with-java-deps AS node-jdk11
 
 # install Java11 LTS JDK
 ADD https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.3%2B7/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz /opt/java
@@ -88,7 +88,7 @@ USER node
 
 #
 # ---- Node JRE 11 Base ----
-FROM node-base AS node-jre11
+FROM node-base-with-java-deps AS node-jre11
 
 # temporarily restore root access to install java
 USER root
@@ -106,7 +106,7 @@ RUN cd /opt/java \
 USER node
 #
 # ---- Node Deps ----
-FROM base AS nodeDependencies
+FROM node-base AS node-dependencies
 
 # Need to bypass self-signed cert error when on corp network
 RUN npm config set strict-ssl false
@@ -124,7 +124,7 @@ FROM node-jre11 AS release
 ENV PORT=3000
 
 # copy production node_modules
-COPY --from=nodeDependencies /home/node/app/prod_node_modules ./node_modules
+COPY --from=node-dependencies /home/node/app/prod_node_modules ./node_modules
 
 # run healthcheck for the node app
 HEALTHCHECK --interval=5s \
@@ -139,7 +139,7 @@ CMD ["npm", "run", "start:prod"]
 FROM node-jdk11 AS develop
 
 # copy node_modules
-COPY --from=nodeDependencies /home/node/app/node_modules ./node_modules
+COPY --from=node-dependencies /home/node/app/node_modules ./node_modules
 
 RUN echo "testing java as $(whoami)...." \
 		&& echo "JAVA_HOME=$JAVA_HOME" \
