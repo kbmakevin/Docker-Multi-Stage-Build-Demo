@@ -34,8 +34,8 @@ ENTRYPOINT ["/sbin/tini", "--"]
 COPY src/package.json .
 
 #
-# ---- Node JDK 11 Base ----
-FROM base AS node-jdk11
+# ---- Node Base with Java Deps ----
+FROM base AS node-base
 
 # temporarily restore root access to install java
 USER root
@@ -67,6 +67,10 @@ RUN apk add --no-cache --virtual .build-deps curl binutils \
     && apk del --purge .build-deps \
     && rm -rf /tmp/${GLIBC_VER}.apk /tmp/gcc /tmp/gcc-libs.tar.xz /tmp/libz /tmp/libz.tar.xz /var/cache/apk/*
 
+#
+# ---- Node JDK 11 Base ----
+FROM node-base AS node-jdk11
+
 # install Java11 LTS JDK
 ADD https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.3%2B7/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz /opt/java
 RUN echo "Added tar ball to /opt/java..."
@@ -74,9 +78,6 @@ RUN cd /opt/java \
 		&& JAVA_TAR="/opt/java/OpenJDK11U-jdk_x64_linux_hotspot_11.0.3_7.tar.gz" \
 		&& tar -xf $JAVA_TAR \
 		&& ln -s /opt/java/jdk-11.0.3+7 /opt/java/current \
-		&& echo "export JAVA_HOME=/opt/java/current" >> /etc/profile.d/java.sh \
-		&& echo "export PATH=$PATH:$JAVA_HOME/bin" >> /etc/profile.d/java.sh \
-		&& sh /etc/profile.d/java.sh \
 		&& rm -rf $JAVA_TAR
 
 ENV JAVA_HOME=/opt/java/current
@@ -87,7 +88,7 @@ USER node
 
 #
 # ---- Node JRE 11 Base ----
-FROM base AS node-jre11
+FROM node-base AS node-jre11
 
 # temporarily restore root access to install java
 USER root
@@ -95,12 +96,17 @@ USER root
 # install Java11 LTS JRE
 ADD https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.3%2B7/OpenJDK11U-jre_x64_linux_hotspot_11.0.3_7.tar.gz /opt/java
 RUN echo "Added tar ball to /opt/java..."
+RUN cd /opt/java \
+		&& JAVA_TAR="/opt/java/OpenJDK11U-jre_x64_linux_hotspot_11.0.3_7.tar.gz" \
+		&& tar -xf $JAVA_TAR \
+		&& ln -s /opt/java/jdk-11.0.3+7-jre /opt/java/current \
+		&& rm -rf $JAVA_TAR
 
 # revert back to node user
 USER node
 #
-# ---- Deps ----
-FROM base AS dependencies
+# ---- Node Deps ----
+FROM base AS nodeDependencies
 
 # Need to bypass self-signed cert error when on corp network
 RUN npm config set strict-ssl false
@@ -118,7 +124,7 @@ FROM node-jre11 AS release
 ENV PORT=3000
 
 # copy production node_modules
-COPY --from=dependencies /home/node/app/prod_node_modules ./node_modules
+COPY --from=nodeDependencies /home/node/app/prod_node_modules ./node_modules
 
 # run healthcheck for the node app
 HEALTHCHECK --interval=5s \
@@ -133,7 +139,7 @@ CMD ["npm", "run", "start:prod"]
 FROM node-jdk11 AS develop
 
 # copy node_modules
-COPY --from=dependencies /home/node/app/node_modules ./node_modules
+COPY --from=nodeDependencies /home/node/app/node_modules ./node_modules
 
 RUN echo "testing java as $(whoami)...." \
 		&& echo "JAVA_HOME=$JAVA_HOME" \
